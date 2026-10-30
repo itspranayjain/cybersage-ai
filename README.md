@@ -1,83 +1,177 @@
-# 🛡️ CyberSage AI — Phishing Detection System
+# 🛡️ CyberSage AI
 
-A Machine Learning-based web application that detects whether a given URL is Safe, Suspicious, or Phishing in real time.
+**AI-powered phishing URL detection — Machine Learning + a local LLM security analyst.**
 
-🌐 **Live Demo:** https://phishing-detector-eyy0.onrender.com/
+CyberSage AI analyses a URL in two ways at once: a **Random Forest** model scores it from 15 lexical features, and a **local LLM running in Ollama** reads it like a security analyst — spotting brand impersonation, typosquatting and other phishing tricks — then explains its verdict in plain English. Everything runs on your own machine; no URL is ever sent to a cloud API, and the target site is never visited.
+
+![CyberSage AI console](images/cybersage-console.png)
 
 ---
 
 ## 🚀 Features
 
-- 🔍 URL-based feature extraction  
-- 🤖 Machine Learning model (Random Forest)  
-- 🌐 Flask web interface  
-- ⚡ Real-time prediction  
-- 📊 Confidence score display  
-- 🔗 API endpoint for automation  
-- 🧠 AI analyst via **Ollama** (local LLM) — explains *why* a URL is risky, lists red flags, and blends its score with the ML model
+- 🤖 **Hybrid detection** — final risk score blends the ML model (50%) and the AI analyst (50%)
+- 🧠 **AI Analyst Report** — verdict, risk score, red flags and advice from a local LLM (default: `gemma4:e2b`)
+- 🎯 **Threat gauge** — animated 0–100 risk score with Safe / Suspicious / Phishing verdict
+- 🔬 **URL Anatomy** — colour-coded breakdown of protocol, subdomain, domain, TLD, path and query
+- 📊 **Feature Vector** — all 15 features the Random Forest sees, with risky values highlighted
+- 🖥️ **SOC-style console UI** — terminal input, live scan log, raw JSON view, scan history
+- 🔌 **REST API** — `/api/predict` and `/api/health` for automation
+- 🛟 **Graceful fallback** — if Ollama is offline, it keeps working with the ML model alone
+- 🔒 **Private by design** — the LLM runs locally; URLs never leave your machine
 
 ---
 
 ## 🧠 How It Works
 
-1. User enters a URL  
-2. System extracts features (length, HTTPS, keywords, etc.)  
-3. Features are passed to ML model  
-4. Model predicts:
-   - ✅ Safe  
-   - ⚠️ Suspicious  
-   - ❌ Phishing  
+```
+              ┌──────────────────────┐
+  URL ──────► │ Feature extraction   │──► Random Forest ──► ML score ──┐
+              │ (15 lexical features)│                                 │
+              └──────────────────────┘                                 ├──► Final risk score
+                                                                       │    + verdict
+  URL + ML score ─────────────► Ollama LLM analyst ──► AI score ───────┘    + explanation
+                                (gemma4:e2b)            + red flags
+```
+
+| Final score | Verdict |
+|---|---|
+| 0 – 39 | ✅ Safe |
+| 40 – 74 | ⚠️ Suspicious |
+| 75 – 100 | ❌ Phishing |
+
+**Features used by the ML model:** URL length, dot count, HTTPS, raw IP address, `@` symbol, hyphen in domain, subdomain count, `http` in domain, path length, digit count, special characters, suspicious keywords (login, verify, bank…), domain length, URL shortener, query count.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- Python  
-- Flask  
-- Scikit-learn  
-- Pandas  
-- HTML, CSS (Bootstrap)  
+| Layer | Tools |
+|---|---|
+| Backend | Python, Flask |
+| Machine Learning | Scikit-learn (Random Forest), Pandas, Joblib |
+| AI / LLM | Ollama, Gemma (any Ollama model works) |
+| Frontend | HTML, CSS, JavaScript |
 
 ---
 
-## 📸 Screenshots
-
-![Home](images/capture_20260324225228129.bmp)
-![Safe](images/capture_20260324233312682.bmp)
-![Phishing](images/capture_20260324225026468.bmp)
-
 ## 📁 Project Structure
 
+```
+cybersage-ai/
+├── app.py                 # Flask app, scoring logic, API routes
+├── ollama_client.py       # Ollama LLM analyst integration
+├── feature_extraction.py  # 15 lexical URL features
+├── train_model.py         # Trains the Random Forest
+├── model.pkl              # Trained model
+├── dataset/
+│   └── phishing_data.csv
+├── templates/
+│   └── index.html         # CyberSage AI console UI
+├── images/                # Screenshots
+├── requirements.txt
+└── Procfile
+```
 
 ---
 
 ## ⚙️ Installation
 
+### 1. Install Ollama and a model
+Download Ollama from [ollama.com](https://ollama.com), then:
 ```bash
-git clone https://github.com/itspranayjain/phishing-detector.git
-cd phishing-detector
-pip install -r requirements.txt
-python app.py
+ollama pull gemma4:e2b
+```
 
+### 2. Clone and set up
+```bash
+git clone https://github.com/itspranayjain/cybersage-ai.git
+cd cybersage-ai
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. Run
+```bash
+python app.py
+```
+Open **http://localhost:10000**
+
+> If the header shows *AI ANALYST (offline)*, start Ollama with `ollama serve`.
+
+### Configuration (optional)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OLLAMA_MODEL` | `gemma4:e2b` | Any model from `ollama list` |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server address |
+| `OLLAMA_TIMEOUT` | `60` | Seconds to wait for the LLM |
+
+```bash
+export OLLAMA_MODEL=llama3.2
+python app.py
+```
 
 ---
 
-## 🤖 AI Analysis with Ollama
+## 🔌 API
 
-The Random Forest gives a fast score; a local LLM (via [Ollama](https://ollama.com)) reads the URL like a security analyst — spotting brand impersonation, typosquatting, shady TLDs — and explains its verdict in plain English. Final score = 50% ML + 50% AI. If Ollama isn't running, the app falls back to ML only.
-
+**Scan a URL**
 ```bash
-# 1. Install Ollama from https://ollama.com, then:
-ollama pull gemma4:e2b
-# 2. Run the app (Ollama runs on localhost:11434 automatically)
-python app.py
+curl -X POST http://localhost:10000/api/predict \
+     -H "Content-Type: application/json" \
+     -d '{"url": "http://paypal-login-verify-account.com/update", "use_ai": true}'
 ```
 
-Optional settings: `OLLAMA_MODEL` (default `gemma4:e2b`), `OLLAMA_HOST` (default `http://localhost:11434`), `OLLAMA_TIMEOUT` (default 60s).
-
-### API
-```bash
-curl -X POST http://localhost:10000/api/predict -H "Content-Type: application/json" \
-     -d '{"url": "http://paypal-login-verify.com", "use_ai": true}'
+**Response**
+```json
+{
+  "url": "http://paypal-login-verify-account.com/update",
+  "result": "❌ Phishing (High Risk)",
+  "final_score": 79.0,
+  "ml_score": 66.0,
+  "ai": {
+    "verdict": "phishing",
+    "risk_score": 92,
+    "red_flags": ["Brand impersonation (paypal)", "Hyphenated domain"],
+    "explanation": "The domain impersonates PayPal using keywords like login and verify...",
+    "advice": "Do not enter any credentials on this site."
+  },
+  "ai_model": "gemma4:e2b",
+  "features": { "url_length": 53, "has_https": 0, "...": "..." },
+  "timing_ms": { "ml": 12.4, "ai": 2840.1 }
+}
 ```
-`GET /api/health` shows whether Ollama is reachable.
+
+**Health check**
+```bash
+curl http://localhost:10000/api/health
+```
+
+---
+
+## 🧪 Try These
+
+| URL | Expected |
+|---|---|
+| `https://www.google.com` | ✅ Safe |
+| `http://paypal-login-verify-account.com/update?id=8812` | ❌ Phishing |
+| `http://192.168.4.21/secure/bank/login.php` | ❌ Phishing |
+| `http://bit.ly/3xFree-Gift` | ⚠️ Suspicious |
+
+---
+
+## ⚠️ Disclaimer
+
+CyberSage AI is an educational cybersecurity project. It analyses URL text only and can make mistakes — always verify suspicious links through official channels before trusting or reporting them.
+
+---
+
+## 👤 Author
+Pranay Jain
+
+
+**Pranay Jain** — [@itspranayjain](https://github.com/itspranayjain)
+
+⭐ If you found this useful, consider starring the repo!
